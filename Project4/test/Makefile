@@ -12,12 +12,12 @@ EQ            = =
 
 ####### Compiler, tools and options
 
-CC            = mpicc
-CXX           = mpicxx
+CC            = gcc
+CXX           = g++
 DEFINES       = -DQT_QML_DEBUG
 CFLAGS        = -pipe -g -Wall -W -fPIC $(DEFINES)
-CXXFLAGS      = -pipe -DMPICH_IGNORE_CXX_SEEK -g -std=gnu++11 -Wall -W -fPIC $(DEFINES)
-INCPATH       = -I. -IC:\armadillo-9.600.6\include -I/home/vidar/Qt/5.13.1/gcc_64/mkspecs/linux-g++
+CXXFLAGS      = -pipe -g -std=gnu++11 -Wall -W -fPIC $(DEFINES)
+INCPATH       = -I. -I/home/vidar/Qt/5.13.1/gcc_64/mkspecs/linux-g++
 QMAKE         = /home/vidar/Qt/5.13.1/gcc_64/bin/qmake
 DEL_FILE      = rm -f
 CHK_DIR_EXISTS= test -d
@@ -38,9 +38,9 @@ TAR           = tar -cf
 COMPRESS      = gzip -9f
 DISTNAME      = test1.0.0
 DISTDIR = /home/vidar/Documents/FYS3150/Project-4/Project4/test/.tmp/test1.0.0
-LINK          = mpicxx
+LINK          = g++
 LFLAGS        = 
-LIBS          = $(SUBLIBS) -larmadillo -lblas -llapack   
+LIBS          = $(SUBLIBS) -llapack -lblas -larmadillo   
 AR            = ar cqs
 RANLIB        = 
 SED           = sed
@@ -52,8 +52,10 @@ OBJECTS_DIR   = ./
 
 ####### Files
 
-SOURCES       = main.cpp 
-OBJECTS       = main.o
+SOURCES       = main.cpp \
+		test_e.cpp 
+OBJECTS       = main.o \
+		test_e.o
 DIST          = /home/vidar/Qt/5.13.1/gcc_64/mkspecs/features/spec_pre.prf \
 		/home/vidar/Qt/5.13.1/gcc_64/mkspecs/common/unix.conf \
 		/home/vidar/Qt/5.13.1/gcc_64/mkspecs/common/linux.conf \
@@ -222,7 +224,8 @@ DIST          = /home/vidar/Qt/5.13.1/gcc_64/mkspecs/features/spec_pre.prf \
 		/home/vidar/Qt/5.13.1/gcc_64/mkspecs/features/exceptions.prf \
 		/home/vidar/Qt/5.13.1/gcc_64/mkspecs/features/yacc.prf \
 		/home/vidar/Qt/5.13.1/gcc_64/mkspecs/features/lex.prf \
-		test.pro catch.hpp main.cpp
+		test.pro catch.hpp main.cpp \
+		test_e.cpp
 QMAKE_TARGET  = test
 DESTDIR       = 
 TARGET        = test
@@ -617,6 +620,9 @@ compiler_clean:
 
 main.o: main.cpp catch.hpp
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o main.o main.cpp
+
+test_e.o: test_e.cpp catch.hpp
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o test_e.o test_e.cpp
 
 ####### Install
 
