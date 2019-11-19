@@ -1,150 +1,108 @@
 #include <array>
 #include <iostream>
 #include <armadillo>
+#include <random>
 #include <math.h>
 #include <stdlib.h>
+#include <fstream>
+#include "mpi/mpi.h"
 
 using namespace arma;
 using namespace std;
 
-mat s_ising(mat& arr, int s){
-    // Antar verdiene enten er -1 eller 1
-    // Er en 2x2 matrix
+mat ising(mat& arr, int s, int MC, float T){
+    //  Energy
+    float E = 0;
+    //  Expected energy, energy squared, expected magnetic, magnetic squared, absolute value of M
+    float av_E = 0,      av_EE = 0,      av_M = 0,          av_MM=0,          abs_M=0;
 
-    // Her finner vi Mean Energy[E]
-    int E = - arr(0,0) * (arr(0,1) + arr(0,1) + arr(1,0) + arr(1,0));
-    E = E - arr(1,1) * (arr(0,1) + arr(0,1) + arr(1,0) + arr(1,0));
-    cout << "E = " << E << endl;
-
-    // Her finner vi Mean Magnetization[M]
-    int M = accu(arr);
-
-    srand(time(NULL));
-
-    int x,y;
-    int MC = 3;
-    int Ex = 0;
-    for(int i = 0; i < MC; i++){
-        cout << "_________________________________________" << endl;
-        x = rand() % s;
-        y = rand() % s;
-        arr(x,y) *= -1;
-        cout << arr << endl;
-
-        Ex = - arr(0,0) * (arr(0,1) + arr(0,1) + arr(1,0) + arr(1,0));
-        Ex = Ex - arr(1,1) * (arr(0,1) + arr(0,1) + arr(1,0) + arr(1,0));
-        if(abs(Ex) > abs(E)){
-            arr(x,y) *= -1;
-            cout << "It dosen't change" << endl;
-        }
-        cout << "Ex = " << Ex << endl;
-    }
-
-
-
-    // Her finner vi Specific Heat[C]
-
-
-
-    cout << "M = " << M << endl;
-    return arr;
-}
-
-mat l_ising(mat& arr, int s){
-    int MC = 4;
-    int M = accu(arr);
-
-    int E = 0;
-
-    // Oppe til venstre
-    E += -arr(0,0) * (arr(1,0) + arr(0,1) + arr(s-1,0) + arr(0,s-1));
-
-    // Oppe til høyre
-    E += -arr(0,s-1) * (arr(0,s-2) + arr(0,0) + arr(s-1,s-1) + arr(1,s-1));
-
-    // Nede til venstre
-    E += -arr(s-1,0) * (arr(s-2,0) + arr(0,0) + arr(s-1,s-1) + arr(s-1, 1));
-
-    // Nede til høyre
-    E += -arr(s-1,s-1) * (arr(s-1,s-2) + arr(s-2,s-1) + arr(0,s-1) + arr(s-1,0));
-
-    mat tmp_1 = arr.col(0);
-    mat tmp_2 = arr.col(s-1);
-    mat tmp_3 = arr.col(1);
-    mat tmp_4 = arr.col(s-2);
-    // For søylene
-    for(int i = 1; i < s-1; i++){
-        E += -tmp_1(i) * (tmp_1(i-1) + tmp_1(i+1) + tmp_2(i) + tmp_3(i));
-        E += -tmp_2(i) * (tmp_2(i-1) + tmp_2(i+1) + tmp_1(i) + tmp_4(i));
-    }
-
-    tmp_1 = arr.row(0);
-    tmp_2 = arr.row(s-1);
-    tmp_3 = arr.row(1);
-    tmp_4 = arr.row(s-2);
-    for(int i = 1; i < s-1; i++){
-        E += -tmp_1(i) * (tmp_1(i-1) + tmp_1(i+1) + tmp_2(i) + tmp_3(i));
-        E += -tmp_2(i) * (tmp_2(i-1) + tmp_2(i+1) + tmp_1(i) + tmp_4(i));
-    }
-
-    for(int i = 1; i < s-1; i++){
-        for(int j = 1; j < s-1; j++){
-            E += -arr(i,i) * (arr(i-1,i) + arr(i+1,i) + arr(i,i-1) + arr(i,i+1));
+    //_______________ Initial values ___________
+    float M = accu(arr);
+    for(int i = 0; i < s-1; i++){
+        for(int j = 0; j < s-1; j++){
+            E -= arr(i,j) * (arr(i+1, j) + arr(i, j+1));
         }
     }
 
-    cout << "Start E = " << E << " Start M = " << M << endl;
-    int Ex, x, y;
-    for(int cycle = 0; cycle < MC; cycle++){
-        Ex = 0;
-        x = rand() % s;
-        y = rand() % s;
-        arr(x,y) *= -1;
+    for(int i = 0; i < s-1; i++){
+        E -= arr(i, s-1) * (arr(i+1, s-1) + arr(i, 0));
+        E -= arr(s-1, i) * (arr(s-1, i+1) + arr(0, i));
+    }
 
-        Ex += -arr(0,0) * (arr(1,0) + arr(0,1) + arr(s-1,0) + arr(0,s-1));
-        Ex += -arr(0,s-1) * (arr(0,s-2) + arr(0,0) + arr(s-1,s-1) + arr(1,s-1));
-        Ex += -arr(s-1,0) * (arr(s-2,0) + arr(0,0) + arr(s-1,s-1) + arr(s-1, 1));
-        Ex += -arr(s-1,s-1) * (arr(s-1,s-2) + arr(s-2,s-1) + arr(0,s-1) + arr(s-1,0));
+    E -= arr(s-1, s-1) * (arr(s-1, 0) + arr(0, s-1));
 
-        tmp_1 = arr.col(0);
-        tmp_2 = arr.col(s-1);
-        tmp_3 = arr.col(1);
-        tmp_4 = arr.col(s-2);
+    av_E = E;
+    av_EE = pow(E, 2);
 
-        for(int i = 1; i < s-1; i++){
-            Ex += -tmp_1(i) * (tmp_1(i-1) + tmp_1(i+1) + tmp_2(i) + tmp_3(i));
-            Ex += -tmp_2(i) * (tmp_2(i-1) + tmp_2(i+1) + tmp_1(i) + tmp_4(i));
-        }
+    av_M = M;
+    av_MM = pow(M, 2);
 
-        tmp_1 = arr.row(0);
-        tmp_2 = arr.row(s-1);
-        tmp_3 = arr.row(1);
-        tmp_4 = arr.row(s-2);
-        for(int i = 1; i < s-1; i++){
-            Ex += -tmp_1(i) * (tmp_1(i-1) + tmp_1(i+1) + tmp_2(i) + tmp_3(i));
-            Ex += -tmp_2(i) * (tmp_2(i-1) + tmp_2(i+1) + tmp_1(i) + tmp_4(i));
-        }
 
-        for(int i = 1; i < s-1; i++){
-            for(int j = 1; j < s-1; j++){
-                Ex += -arr(i,i) * (arr(i-1,i) + arr(i+1,i) + arr(i,i-1) + arr(i,i+1));
+    //____________________________________________
+
+    int N = s*s, x, y;
+    float Ex = E;
+
+    random_device rd;
+    mt19937 gen(rd());
+    uniform_real_distribution<> dis(0.0, 1.0);
+
+    Mat<double> w = vec(17);
+    for (int de = -8; de <= 8; de += 4){
+      w(de+8) = exp(-de/T);
+    }
+    /*
+    ofstream file;
+    if(M == s*s){
+        file.open("Ones.txt");
+    }
+    else{
+        file.open("Random.txt");
+    }
+    file << MC << endl;
+    file << av_E << " " << av_M << endl;
+    */
+
+
+    for(int cycle = 1; cycle < MC; cycle++){
+        for(int loop = 0; loop < N; loop++){
+            x = rand() % s;
+            y = rand() % s;
+
+            Ex = 2*arr(x, y) * (arr((x+1)%s, y) + arr((x+s-1)%s, y) + arr(x, (y+s-1)%s) + arr(x, (y+1)%s));
+
+            if(dis(gen) <= w(Ex + 8)){
+                arr(x,y) *= -1;
+                E += Ex;
+                M += 2*arr(x,y);
             }
+
+
         }
-        if(Ex < E){
-            M = accu(arr);
-            cout << "______________________________" << endl;
-            cout << "Succsess!" << endl;
-            cout << arr << endl;
-            cout << "Ex = " << Ex << " E = " << E << " M = " << M << endl;
-            E = Ex;
-        }
-        else{
-            cout << "______________________________" << endl;
-            cout << "Failure!" << endl;
-            cout << arr << endl;
-            cout << "Ex = " << Ex << " E = " << E << " M = " << M << endl;
-            arr(x,y) *= -1;
-        }
+        av_E += E;
+        av_EE += E*E;
+        av_M += M;
+        av_MM += M*M;
+        abs_M += abs(M);
     }
-    return arr;
+    //file.close();
+
+    av_E /= MC;
+    av_M /= MC;
+    av_EE /= MC;
+    av_MM /= MC;
+    abs_M /= MC;
+
+    float E_var = (av_EE - pow(av_E, 2))/(s*s);
+    float M_var = (av_MM - pow(av_M, 2))/(s*s);
+    float M_abs_var = (av_MM - pow(abs_M, 2))/(s*s);
+
+    av_E /= (s*s);
+    av_M /= (s*s);
+    abs_M /= (s*s);
+
+    Mat<double> ret = {av_E, E_var, av_M, M_var, abs_M, M_abs_var};
+
+
+    return ret;
 }

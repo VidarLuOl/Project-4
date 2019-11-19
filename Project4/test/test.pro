@@ -3,7 +3,9 @@ CONFIG += console c++11
 CONFIG -= app_bundle
 CONFIG -= qt
 
-LIBS += -llapack -lblas -larmadillo
+INCLUDEPATH += C:\armadillo-9.600.6\include
+DEPENDPATH += C:\armadillo-9.600.6\include
+
 
 # MPI Settings
 QMAKE_CXX = mpicxx
@@ -17,13 +19,12 @@ QMAKE_LFLAGS += $$system(mpicxx --showme:link)
 QMAKE_CXXFLAGS += $$system(mpicxx --showme:compile) -DMPICH_IGNORE_CXX_SEEK
 QMAKE_CXXFLAGS_RELEASE += $$system(mpicxx --showme:compile) -DMPICH_IGNORE_CXX_SEEK
 
+
+LIBS += \
+        -larmadillo -lblas -llapack
+
 SOURCES += \
-        ising.cpp \
-        main.cpp
+        main.cpp \
 
 HEADERS += \
-    ising.h
-
-DISTFILES += \
-    plot.py
-
+        catch.hpp

@@ -4,6 +4,5 @@
 
 using namespace arma;
 
-mat s_ising(mat& arr, int i);
-mat l_ising(mat& arr, int i);
+mat ising(mat& arr, int s, int MC, float T);
 #endif // ISING_H
